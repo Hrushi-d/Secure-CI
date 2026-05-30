@@ -1,0 +1,30 @@
+name: CI demo
+# Sample consumer pipeline — proves the paved road end to end
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  java:
+    uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1.1.0
+    with:
+      image-name: ghcr.io/hrushi-d/secureci/sample-java
+      context: samples/java
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+
+  node:
+    uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1.1.0
+    with:
+      image-name: ghcr.io/hrushi-d/secureci/sample-node
+      context: samples/node
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write

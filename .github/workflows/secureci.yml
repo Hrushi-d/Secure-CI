@@ -1,0 +1,157 @@
+name: SecureCI
+
+# Reusable GitHub Actions workflow — the "secureci" paved road.
+# 100% OSS, account-free, keyless signing.
+#
+# Consumer usage (in your repo's .github/workflows/ci.yml):
+#
+#   jobs:
+#     secureci:
+#       uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1
+#       with:
+#         image-name: ghcr.io/${{ github.repository }}
+#         context: .
+#       permissions:
+#         contents: read
+#         packages: write
+#         id-token: write
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: 'Full image name without tag, e.g. ghcr.io/owner/repo'
+        required: true
+        type: string
+      context:
+        description: 'Docker build context'
+        required: false
+        type: string
+        default: '.'
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: false
+        type: string
+        default: 'Dockerfile'
+      fail-on-cvss:
+        description: 'Fail build if dependency CVE severity >= this'
+        required: false
+        type: string
+        default: 'HIGH'
+
+jobs:
+  secureci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write        # cosign keyless signing
+      security-events: write # upload SARIF to GitHub Security tab
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # gitleaks needs full history
+
+      # — 1. Secrets scan ————————————————————————————————————————
+      - name: 🔑 Secrets scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # — 2. SAST ————————————————————————————————————————————————
+      - name: 🔍 SAST (semgrep)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: auto
+
+      # — 3. SCA + IaC scan ————————————————————————————————————————
+      - name: 🛡️ SCA + IaC (trivy fs)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.context }}
+          severity: ${{ inputs.fail-on-cvss }},CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+
+      - name: Upload trivy fs SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      # — 4. Container build ————————————————————————————————————————
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tag
+        id: tag
+        env:
+          IMAGE_NAME: ${{ inputs.image-name }}
+          GIT_SHA: ${{ github.sha }} 
+        run: |
+          echo "tag=${IMAGE_NAME}:${GIT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: 🐳 Build & push image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.context }}/${{ inputs.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.tag.outputs.tag }}
+            ${{ inputs.image-name }}:latest
+
+      # — 5. Container scan ————————————————————————————————————————
+      - name: 🔵 Container scan (trivy image)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.tag.outputs.tag }}
+          severity: ${{ inputs.fail-on-cvss }},CRITICAL
+          exit-code: '0'
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image.sarif
+
+      - name: Upload trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      # — 6. SBOM ————————————————————————————————————————————————
+      - name: 📋 SBOM (syft, CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.tag.outputs.tag }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          upload-artifact: true
+
+      # — 7. Sign image + attest SBOM (cosign keyless) ————————————
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: 🔏 Sign image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: cosign sign --yes ${{ steps.tag.outputs.tag }}
+
+      - name: 🔏 Attest SBOM
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: |
+          cosign attest --yes \
+            --predicate sbom.cdx.json \
+            --type cyclonedx \
+            ${{ steps.tag.outputs.tag }}

@@ -1,0 +1,53 @@
+version: 2
+updates:
+  # Keep the reusable workflow's pinned actions up to date.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
+      - github-actions
+
+  # Java sample dependencies (junit, surefire).
+  - package-ecosystem: maven
+    directory: /samples/java
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(java)"
+    labels:
+      - dependencies
+
+  # Node sample dependencies.
+  - package-ecosystem: npm
+    directory: /samples/node
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(node)"
+    labels:
+      - dependencies
+
+  # Base images in Dockerfiles.
+  - package-ecosystem: docker
+    directory: /samples/java
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps(docker)"
+    labels:
+      - dependencies
+  - package-ecosystem: docker
+    directory: /samples/node
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps(docker)"
+    labels:
+      - dependencies

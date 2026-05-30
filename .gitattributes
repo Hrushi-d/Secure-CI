@@ -1,0 +1,9 @@
+* text=auto
+*.java linguist-language=Java
+*.js linguist-language=JavaScript
+*.sh linguist-language=Shell
+*.yml linguist-language=YAML
+*.xml linguist-language=XML
+*.json linguist-language=JSON
+samples/java/** linguist-detectable=true
+samples/node/** linguist-detectable=true

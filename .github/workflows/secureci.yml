@@ -7,7 +7,7 @@ name: SecureCI
 #
 #   jobs:
 #     secureci:
-#       uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1
+#       uses: Hrushi-d/Secure-CI/.github/workflows/secureci.yml@v1
 #       with:
 #         image-name: ghcr.io/${{ github.repository }}
 #         context: .
@@ -49,24 +49,33 @@ jobs:
       security-events: write # upload SARIF to GitHub Security tab
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4        # v4 is latest stable
         with:
-          fetch-depth: 0     # gitleaks needs full history
+          fetch-depth: 0                 # gitleaks needs full history
 
       # — 1. Secrets scan ————————————————————————————————————————
       - name: 🔑 Secrets scan (gitleaks)
+        if: always()
+        id: gitleaks
+        continue-on-error: true
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # — 2. SAST ————————————————————————————————————————————————
       - name: 🔍 SAST (semgrep)
+        if: always()
+        id: semgrep
+        continue-on-error: true
         uses: semgrep/semgrep-action@v1
         with:
           config: auto
 
       # — 3. SCA + IaC scan ————————————————————————————————————————
       - name: 🛡️ SCA + IaC (trivy fs)
+        if: always()
+        id: trivy-fs
+        continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
@@ -79,13 +88,17 @@ jobs:
 
       - name: Upload trivy fs SARIF
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
 
-      # — 4. Container build ————————————————————————————————————————
+      # — 4. Container build (local only, no push yet) ——————————
+      # No if:always() here — these must only run if prior steps didn't crash
+      # Silent failure on login/build gives false container scan results
       - name: Log in to GHCR
+        id: ghcr-login
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -96,40 +109,74 @@ jobs:
         id: tag
         env:
           IMAGE_NAME: ${{ inputs.image-name }}
-          GIT_SHA: ${{ github.sha }} 
+          GIT_SHA: ${{ github.sha }}
         run: |
           echo "tag=${IMAGE_NAME}:${GIT_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: 🐳 Build & push image
+      - name: 🐳 Build image (local only — no push yet)
         id: build
         uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
           file: ${{ inputs.context }}/${{ inputs.dockerfile }}
-          push: true
+          push: false
+          load: true
           tags: |
             ${{ steps.tag.outputs.tag }}
             ${{ inputs.image-name }}:latest
 
       # — 5. Container scan ————————————————————————————————————————
       - name: 🔵 Container scan (trivy image)
+        if: always()
+        id: trivy-image
+        continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.tag.outputs.tag }}
           severity: ${{ inputs.fail-on-cvss }},CRITICAL
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: true
           format: sarif
           output: trivy-image.sarif
 
       - name: Upload trivy image SARIF
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
 
-      # — 6. SBOM ————————————————————————————————————————————————
+      # — 6. Gate check — stop if any gate failed or was skipped ——
+      - name: 🚦 Gate check
+        if: always()
+        run: |
+          echo "Gitleaks : ${{ steps.gitleaks.outcome }}"
+          echo "Semgrep  : ${{ steps.semgrep.outcome }}"
+          echo "Trivy fs : ${{ steps.trivy-fs.outcome }}"
+          echo "Build    : ${{ steps.build.outcome }}"
+          echo "Trivy img: ${{ steps.trivy-image.outcome }}"
+
+          FAILED=0
+          for step_outcome in \
+            "${{ steps.gitleaks.outcome }}" \
+            "${{ steps.semgrep.outcome }}" \
+            "${{ steps.trivy-fs.outcome }}" \
+            "${{ steps.build.outcome }}" \
+            "${{ steps.trivy-image.outcome }}"; do
+            if [[ "$step_outcome" == "failure" || "$step_outcome" == "skipped" ]]; then
+              FAILED=1
+            fi
+          done
+
+          if [[ $FAILED -eq 1 ]]; then
+            echo "❌ One or more security gates failed or were skipped — sign and push blocked"
+            exit 1
+          fi
+          echo "✅ All gates passed — proceeding to sign and publish"
+
+      # — 7. SBOM ————————————————————————————————————————————————
+      # Runs against local image before push — correct, image exists locally
       - name: 📋 SBOM (syft, CycloneDX)
         uses: anchore/sbom-action@v0
         with:
@@ -138,18 +185,25 @@ jobs:
           output-file: sbom.cdx.json
           upload-artifact: true
 
-      # — 7. Sign image + attest SBOM (cosign keyless) ————————————
+      # — 8. Push image (gates passed, safe to publish) ————————
+      # Push the already-built local image directly — no second build
+      - name: 📦 Push image to GHCR
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_NAME: ${{ inputs.image-name }}
+        run: |
+          docker push "$IMAGE_TAG"
+          docker push "${IMAGE_NAME}:latest"
+
+      # — 9. Sign image + attest SBOM (cosign keyless) ————————————
+      # Sign AFTER push — cosign signs by digest in the registry
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
       - name: 🔏 Sign image (cosign keyless)
-        env:
-          COSIGN_EXPERIMENTAL: '1'
         run: cosign sign --yes ${{ steps.tag.outputs.tag }}
 
       - name: 🔏 Attest SBOM
-        env:
-          COSIGN_EXPERIMENTAL: '1'
         run: |
           cosign attest --yes \
             --predicate sbom.cdx.json \

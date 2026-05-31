@@ -67,7 +67,7 @@ It collapses "a weekend of work, per project" into **10 lines of YAML, once.**
 ```yaml
 jobs:
   secureci:
-    uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1
+    uses: Hrushi-d/Secure-CI/.github/workflows/secureci.yml@v1
     with:
       image-name: ghcr.io/${{ github.repository }}
     permissions:

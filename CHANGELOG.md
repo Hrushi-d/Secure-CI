@@ -22,5 +22,5 @@ Initial public release.
 - `SECURITY.md` private-disclosure policy.
 - Dependabot config for actions, maven, npm, and docker.
 
-[Unreleased]: https://github.com/Hrushi-d/secureci/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/Hrushi-d/secureci/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Hrushi-d/Secure-CI/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Hrushi-d/Secure-CI/releases/tag/v1.0.0

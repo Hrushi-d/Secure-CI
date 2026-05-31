@@ -7,7 +7,7 @@ SecureCI is a small OSS project. Reporting is intentionally lightweight.
 **For most issues — just open a public GitHub issue.** That's fine and preferred.
 Faster triage, public discussion, no friction.
 
-👉 <https://github.com/Hrushi-d/secureci/issues/new>
+👉 <https://github.com/Hrushi-d/Secure-CI/issues/new>
 
 ## When to report privately instead
 
@@ -18,7 +18,7 @@ Only if **all three** are true:
 3. Disclosing it publicly before a fix would put existing users at real risk.
 
 Then use GitHub's private vulnerability reporting:
-<https://github.com/Hrushi-d/secureci/security/advisories/new>
+<https://github.com/Hrushi-d/Secure-CI/security/advisories/new>
 
 ## Scope
 
@@ -42,7 +42,7 @@ ships. Verify any release with:
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp "https://github.com/Hrushi-d/secureci/.*" \
+  --certificate-identity-regexp "https://github.com/Hrushi-d/Secure-CI/.*" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/Hrushi-d/secureci:<tag>
+  ghcr.io/Hrushi-d/Secure-CI:<tag>
 ```

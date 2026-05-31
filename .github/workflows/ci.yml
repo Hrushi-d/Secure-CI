@@ -8,9 +8,9 @@ on:
 
 jobs:
   java:
-    uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1.1.0
+    uses: Hrushi-d/Secure-CI/.github/workflows/secureci.yml@v1
     with:
-      image-name: ghcr.io/hrushi-d/secureci/sample-java
+      image-name: ghcr.io/hrushi-d/secure-ci/sample-java
       context: samples/java
     permissions:
       contents: read
@@ -19,9 +19,9 @@ jobs:
       security-events: write
 
   node:
-    uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1.1.0
+    uses: Hrushi-d/Secure-CI/.github/workflows/secureci.yml@v1
     with:
-      image-name: ghcr.io/hrushi-d/secureci/sample-node
+      image-name: ghcr.io/hrushi-d/secure-ci/sample-node
       context: samples/node
     permissions:
       contents: read

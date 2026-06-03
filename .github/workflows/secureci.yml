@@ -15,6 +15,7 @@ name: SecureCI
 #         contents: read
 #         packages: write
 #         id-token: write
+#         security-events: write
 
 on:
   workflow_call:
@@ -45,13 +46,13 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write        # cosign keyless signing
-      security-events: write # upload SARIF to GitHub Security tab
+      id-token: write        
+      security-events: write 
 
     steps:
-      - uses: actions/checkout@v4        # v4 is latest stable
+      - uses: actions/checkout@v4 
         with:
-          fetch-depth: 0                 # gitleaks needs full history
+          fetch-depth: 0               
 
       # — 1. Secrets scan ————————————————————————————————————————
       - name: 🔑 Secrets scan (gitleaks)
@@ -95,8 +96,6 @@ jobs:
           category: trivy-fs
 
       # — 4. Container build (local only, no push yet) ——————————
-      # No if:always() here — these must only run if prior steps didn't crash
-      # Silent failure on login/build gives false container scan results
       - name: Log in to GHCR
         id: ghcr-login
         uses: docker/login-action@v4
@@ -186,7 +185,6 @@ jobs:
           upload-artifact: true
 
       # — 8. Push image (gates passed, safe to publish) ————————
-      # Push the already-built local image directly — no second build
       - name: 📦 Push image to GHCR
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}

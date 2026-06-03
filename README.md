@@ -1,9 +1,9 @@
 # 🔒 SecureCI
 
-[![CI](https://github.com/Hrushi-d/secureci/actions/workflows/ci.yml/badge.svg)](https://github.com/Hrushi-d/secureci/actions/workflows/ci.yml)
+[![CI](https://github.com/Hrushi-d/Secure-CI/actions/workflows/ci.yml/badge.svg)](https://github.com/Hrushi-d/Secure-CI/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/Hrushi-d/secureci)](https://github.com/Hrushi-d/secureci/releases)
-[![OSS](https://img.shields.io/badge/tools-100%25%20OSS-green)](https://github.com/Hrushi-d/secureci#the-stack)
+[![Release](https://img.shields.io/github/v/release/Hrushi-d/Secure-CI)](https://github.com/Hrushi-d/Secure-CI/releases)
+[![OSS](https://img.shields.io/badge/tools-100%25%20OSS-green)](https://github.com/Hrushi-d/Secure-CI#the-stack)
 
 > **Turn any CI pipeline into a DevSecOps pipeline — in 10 lines of YAML**
 > A 100% open-source, account-free paved road that takes any container service
@@ -117,16 +117,17 @@ On every push, the reusable workflow at
 [`.github/workflows/secureci.yml`](.github/workflows/secureci.yml) runs
 these gates in order. If any one fails, nothing gets published.
 
-| # | Gate | Tool | What it checks |
+| # | Steps | Tool | What it checks |
 | - | --- | --- | --- |
 | 1 | 🔑 Secrets | gitleaks | No AWS keys, tokens, passwords leaked into git |
 | 2 | 🔍 SAST | semgrep | Insecure code patterns (SQLi, XSS, hardcoded creds) |
 | 3 | 🛡️ SCA + IaC | trivy fs | Vulnerable dependencies + misconfigured Terraform / K8s |
 | 4 | 🐳 Build | docker build | Builds your container image |
 | 5 | 🔵 Image scan | trivy image | High/Critical CVEs in the final image |
-| 6 | 📋 SBOM | syft (CycloneDX) | Ingredient list of every library in the image |
-| 7 | 🔏 Sign | cosign keyless | Signs the image via Sigstore + GitHub OIDC (no keys to manage) |
+| 6 | 🚦 Gate Check | GitHub Actions | Aggregates scan results and blocks publish/sign if any required check fails |
+| 7 | 📋 SBOM | syft (CycloneDX) | Ingredient list of every library in the image |
 | 8 | 📦 Publish | GHCR | Pushes the signed, attested image to `ghcr.io/Hrushi-d/<repo>` |
+| 9 | 🔏 Sign | cosign keyless | Signs the image via Sigstore + GitHub OIDC (no keys to manage) |
 
 All findings are uploaded to your repo's **Security tab** as SARIF, so triage
 is one click away. You can run the same gates on your laptop with
@@ -156,6 +157,17 @@ secureci/
 ├── LICENSE
 └── README.md
 ```
+## About the Security tab findings
+
+All alerts in the Security tab are CVEs inside npm's own bundled dependencies
+within the `node:20-alpine` base image — not in the sample app code. This is intentional.
+
+SecureCI's trivy gate catches vulnerabilities hiding in base images that most
+pipelines never scan. Even a "Hello World" Node app has 15 High CVEs lurking in
+the base image. That's exactly the problem gate 5 exists to solve.
+
+> If you adopt SecureCI in your own repo, trivy will surface your real base image
+> CVEs the same way — so you can make an informed decision to update or accept the risk.
 
 ## Quick start — use it in your own repo
 
@@ -167,7 +179,7 @@ In short:
 # .github/workflows/ci.yml in your repo
 jobs:
   secureci:
-    uses: Hrushi-d/secureci/.github/workflows/secureci.yml@v1
+    uses: Hrushi-d/Secure-CI/.github/workflows/secureci.yml@v1
     with:
       image-name: ghcr.io/${{ github.repository }}
     permissions:
@@ -189,7 +201,7 @@ brew install gitleaks semgrep trivy   # macOS
 # (Linux: see official installers for each)
 
 # 2. Clone and scan any project folder containing a Dockerfile
-git clone https://github.com/Hrushi-d/secureci.git
+git clone https://github.com/Hrushi-d/Secure-CI.git
 cd secureci
 ./scripts/local-scan.sh samples/java
 ./scripts/local-scan.sh /path/to/your/own/project

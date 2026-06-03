@@ -74,6 +74,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      security-events: write
 ```
 
 Behind that one line you get the same 8-stage pipeline a platform team would

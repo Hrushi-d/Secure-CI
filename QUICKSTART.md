@@ -39,9 +39,7 @@ git push
 
 ## 3. Watch it run
 
-GitHub → **Actions** tab. 8 gates run in order: secrets → SAST → SCA → build → image
-scan → SBOM → sign → push.
-
+GitHub → **Actions** tab. 8 gates run in order: secrets → SAST → SCA → build → image scan → gate check → SBOM → push → sign + attest
 ## What you get
 
 | Where | What |
@@ -54,7 +52,7 @@ scan → SBOM → sign → push.
 ## Verify any pulled image
 
 ```bash
-cosign verify ghcr.io/Hrushi-d/<repo>:latest \
+cosign verify ghcr.io/Hrushi-d/<repo>:<sha> \
   --certificate-identity-regexp "https://github.com/Hrushi-d/.*" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```

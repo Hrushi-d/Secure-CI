@@ -98,3 +98,12 @@ fi
 
 step "✅ SecureCI local checks passed"
 echo "Reports written to: $REPORTS_DIR"
+
+# Gates run locally (gates 1–5 of the 9-step CI workflow):
+#   # Gate        Tool
+#   1  Secrets    gitleaks
+#   2  SAST       semgrep
+#   3  SCA + IaC  trivy fs
+#   4  Container  docker build
+#   5  Image scan trivy image
+#   (Steps 6–9: gate check, SBOM, push, sign — CI only)

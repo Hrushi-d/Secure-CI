@@ -1,6 +1,6 @@
 # Multi-stage build — self-contained, no host build step required.
 # Stage 1: build the JAR inside Docker so `docker build` works from scratch.
-FROM eclipse-temurin:17-jdk-jammy@sha256:f7b969d455abeefb9cad0280477e067d8340c22a081347a94c6fe22d0c67d420 AS build
+FROM eclipse-temurin:22-jdk-jammy@sha256:d8e6ba486df17bf758888d2b1b608133d1eedca8daf69d3fc6bf78d8be81e07e AS build
 WORKDIR /src
 COPY pom.xml ./
 COPY src ./src
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends maven \
     && mvn -B -DskipTests package
 
 # Stage 2: minimal runtime image.
-FROM eclipse-temurin:17-jre-jammy@sha256:8a21b8680d754f9f953b8285fb140879979a3b1fe038c1491df6dc0f9a04a1d3
+FROM eclipse-temurin:22-jre-jammy@sha256:dbcae8b5dd4d63f81739a538ec2c09797735f04a21d814f9071b62f018326043
 WORKDIR /app
 COPY --from=build /src/target/sample-app-0.1.0.jar /app/app.jar
 USER 1001
